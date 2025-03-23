@@ -150,29 +150,27 @@ class Queens(BoardPuzzle):
     
     def solved(self):
         """
-        Checks if the puzzle has been solved.
+        Checks if the puzzle is solved.
 
-        :return: True if the puzzle is solved, otherwise returns False.
+        :return: True if the puzzle is solved; otherwise, False.
         """
         return self.is_solved and self.board is not None
 
     def is_dead_end_or_invalid(self):
         """
-        Determines if the current board state is invalid or if continuing from this position is futile.
+        Determines whether the current board state is invalid or leads to a dead end.
 
-        :return: True if the board is in an invalid state or if the current situation clearly leads to a dead end.
-                 Otherwise, returns False.
+        :return: True if the board state is invalid or leads to a dead end; otherwise, False.
         """
         return self.is_invalid and self.board is not None
 
     def candidate_moves(self, level: int):
         """
-        Generates an iterable of possible moves to make from the current board position.
-        The moves are ordered to increase the likelihood of finding a solution quickly.
+        Generates an iterable of possible moves from the current board state, ordered to maximize the chances 
+        of finding a solution quickly.
 
-        :param level: Indicates the current recursive depth of the search, useful for undoing all moves
-                      if a dead end is reached.
-        :return: An iterable containing all the possible moves from the current position.
+        :param level: The current recursive depth, useful for undoing all moves if a dead end is reached.
+        :return: An iterable of possible moves from the current position.
         """
         if self.board is None:
             return []
@@ -195,12 +193,10 @@ class Queens(BoardPuzzle):
 
     def make_move(self, move: Move, level: int):
         """
-        Executes a move on the board and stores the metadata needed to undo this move
-        and others made at the same recursive level.
+        Executes a move and records metadata needed to undo this and other moves at the same recursive level.
 
-        :param move: An object containing the move details, such as coordinates, type of piece, character, etc.
-        :param level: Indicates the current recursive depth of the search, useful for undoing all moves
-                      if a dead end is reached.
+        :param move: An object representing the move, such as coordinates, piece type, or character.
+        :param level: The current recursive depth, used to undo moves if a dead end is reached.
         """
         if self.board[move.coord] == move.tile:
             return
@@ -223,6 +219,7 @@ class Queens(BoardPuzzle):
         Counts tiles of each type in the specified zone
         Marks invalid the puzzle if the zone has more than one queen or has no room for a queen (all 'X's)
         Stores the position of the last queen encountered in the zone (if any)
+
         :param zone: the zone to count
         :return: a dict containing counters for the three types of tile and the last position of each one
         """
@@ -238,9 +235,11 @@ class Queens(BoardPuzzle):
         """
         Returns the boundaries of the current zone, i.e., the minimum and maximum row numbers and the minimum
         and maximum column numbers of all blank cells in a zone (if any).
+
         The return value is a dict with this structure:
             { 'min': (minimum row number, minimum col number),
               'max': (maximum row number, maximum col number) }
+
         :param zone: the zone to process
         :return: a structure as described above, or an empty dict
         """
@@ -259,7 +258,8 @@ class Queens(BoardPuzzle):
 
     def deduct_one_place_left(self, level: int):
         """
-        If there is just one place left in a row, column o zone, put a queen there
+        If there is just one place left in a row, column o zone, place a queen there
+
         :return: True if any change was made in the board
         """
         changed = False
@@ -275,6 +275,7 @@ class Queens(BoardPuzzle):
     def deduct_one_queen_per_zone(self, level: int):
         """
         If there is a queen in a zone, mark with X the other cells of that zone
+
         :return: True if any change was made in the board
         """
         changed = False
@@ -292,6 +293,7 @@ class Queens(BoardPuzzle):
     def deduct_no_touching_queens(self, level: int):
         """
         If there is a queen in a cell, mark with X all the cells around it
+
         :return: True if any change was made in the board
         """
         changed = False
@@ -317,8 +319,9 @@ class Queens(BoardPuzzle):
 
     def deduct_zone_qty_match_range_length(self, level: int):
         """
-        If there is exactly n zones enclosed in an n rows (or cols) range, then the other zones within the range must be
+        If there are exactly n zones enclosed in an n rows (or cols) range, then the other zones within the range must be
         marked X, because we have n queens for n rows (or cols) and these exactly n zones.
+
         :return: True if any change was made in the board
         """
         changed = False
@@ -347,23 +350,22 @@ class Queens(BoardPuzzle):
         """
         If part of a zone is needed to reach the number of queens in a range (rows or cols), then the zone cells outside
         the range must be marked X
+
         :return: True if any change was made in the board
         """
+        # TODO: If need to avoid some brute-force searching, implement this and other posible deduct methods.
         changed = False
 
         return changed
 
     def make_deduct_moves(self, level: int):
         """
-        Executes all mandatory moves based on the current board state. These moves are labeled with the same
-        recursive level, allowing them to be undone if this position, along with the mandatory moves, leads
-        to an invalid state or dead end.
+        Executes all mandatory moves based on the current board state. These moves are labeled with the 
+        current recursive level, allowing them to be undone if they lead to an invalid state or dead end.
 
-        If a dead end is reached, the clean_level() method will remove all moves marked with the current level,
-        including the move that led to this position.
+        If a dead end is reached, clean_level() will remove all moves marked with the current level.
 
-        :param level: Indicates the current recursive depth of the search, useful for undoing all moves
-                      if a dead end is encountered.
+        :param level: The current recursive depth, used to undo moves if a dead end is encountered.
         """
         if self.board is None:
             return
@@ -388,9 +390,9 @@ class Queens(BoardPuzzle):
 
     def clean_level(self, level: int):
         """
-        Removes all moves made by make_move() and make_deduct_moves() that are labeled with the specified level.
+        Removes all moves made by make_move() and make_deduct_moves() at the specified recursive level.
 
-        :param level: Indicates the recursive level of the search, used to undo all moves that led to a dead end.
+        :param level: The recursive level used to undo all moves that led to a dead end.
         """
         self.moves_by_level[level].reverse()
         for m in self.moves_by_level[level]:
