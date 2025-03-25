@@ -15,8 +15,25 @@ class Queens(BoardPuzzle):
             self.tile = tile
 
     def __init__(self, source = None, **addit_params):
-        self.zone_matrix = None
-        self.board = None
+        """
+        Represents the Queens game from LinkedIn, implementing the abstract class BoardPuzzle.
+
+        This class takes an unsolved screenshot of the game, searches for the board grid in the image, or directly 
+        receives a Grid object if the grid has already been detected. It initializes the necessary data structures 
+        for use by the BPSolver class.
+
+        :param source: Either a string representing the image filename to be processed or an object of type Grid. 
+                    If a string is provided, a Grid object will be created and initialized by detecting the grid 
+                    in the image. If a Grid object is passed directly, it will be used as is if it already contains 
+                    a detected grid (Grid.n > 0). Otherwise, it will attempt to detect the grid using the methods 
+                    Grid.preprocess_image and Grid.find_grid.
+        :type source: str or Grid
+        :param addit_params: Additional keyword arguments that will be passed to the appropriate methods of the Grid object. 
+                            Parameters related to image preprocessing (e.g., `resize_width`, `threshold_values`) will be 
+                            sent to `Grid.preprocess_image`, while parameters related to grid detection (e.g., `min_line_length`, 
+                            `max_groupping_dist`) will be sent to `Grid.find_grid`.
+        :type addit_params: dict-like (keyword arguments)
+        """
         self.rows, self.cols = 0, 0
         self.moves_by_level = dict()
         self.zone_lists = None
@@ -76,6 +93,24 @@ class Queens(BoardPuzzle):
             return
 
     def load_from_grid(self, gr: Grid):
+        """
+        Loads and initializes the board based on the grid detected in the provided Grid object.
+        
+        This method extracts key information from the given Grid object, including the image, grid axis positions, 
+        and cell size. It computes the average colors for a sub-region of each cell, groups the colors into clusters, 
+        and initializes the internal structures of the board. If the grid is invalid (e.g., no grid detected or 
+        insufficient distinct colors), it resets the object.
+
+        :param gr: A Grid object containing the detected grid and its properties (image, axis positions, cell size).
+        :type gr: Grid
+        
+        :return: A status message indicating whether the board was successfully loaded. Possible return values are:
+                 - 'OK': The board was successfully loaded.
+                 - 'No grid detected': The provided Grid object has no detected grid (`gr.n == 0`).
+                 - 'No valid board detected': The grid was detected, but there are not enough distinct colors 
+                   to distinguish between the expected zones.
+        :rtype: str
+        """
         if gr.n == 0:
             self.__init__()
             return 'No grid detected'
@@ -119,6 +154,24 @@ class Queens(BoardPuzzle):
         return 'OK'
 
     def zone_lists_init(self):
+        """
+        Initializes the zone-based lists and queen tracking for the board.
+
+        This method creates lists of positions for each zone in the board, based on the zone matrix. 
+        A zone is defined either by a unique color cluster (inferred from the clustering algorithm) 
+        or by structural components like rows and columns. It also initializes the tracking of queen 
+        placements in each zone, setting them to `None` by default.
+
+        The created zones include:
+        - Color-based zones: Each distinct zone in `self.zone_matrix` is mapped to a list of cell coordinates 
+          that belong to that zone.
+        - Row-based zones: Each row is mapped to a list of cell coordinates in that row.
+        - Column-based zones: Each column is mapped to a list of cell coordinates in that column.
+
+        Additionally, it initializes `self.zone_queens`, which tracks the position of the queen (if any) in each zone.
+
+        :return: None
+        """
         self.zone_lists = dict()
         for (row, col), value in np.ndenumerate(self.zone_matrix):
             if f'zone {value}' not in self.zone_lists:
@@ -132,6 +185,22 @@ class Queens(BoardPuzzle):
             self.zone_queens[zone] = None
 
     def draw_solution(self, image = None, inplace = False):
+        """
+        Draws the solution of the board puzzle on the given image.
+
+        This method visually represents the puzzle's solution by drawing the board's zones and any queens placed 
+        on the board. Each cell is filled with its corresponding zone color, and if a queen ('Q') is placed in a 
+        cell, it is drawn as a circle. The queen is filled with a solid color if the puzzle is marked as solved, 
+        otherwise, it is outlined.
+
+        :param image: Optional. The image on which to draw the solution. If not provided, it defaults to 
+                      `self.image`. If both `image` and `self.image` are `None`, the method returns `None`.
+        :param inplace: Optional. A boolean indicating whether to modify the given image in-place. 
+                        If `True`, the drawing is applied directly to the input image. If `False` (default), a copy 
+                        of the image is created and modified instead.
+
+        :return: The image with the solution drawn on it. If no valid image is provided, returns `None`.
+        """
         image = self.image if image is None else image
         if image is None or self.board is None:
             return None if image is None else (image if inplace else image.copy())
@@ -216,12 +285,17 @@ class Queens(BoardPuzzle):
 
     def tiles_count(self, zone):
         """
-        Counts tiles of each type in the specified zone
-        Marks invalid the puzzle if the zone has more than one queen or has no room for a queen (all 'X's)
-        Stores the position of the last queen encountered in the zone (if any)
+        Counts the number of tiles of each type ('Q', 'X', and ' ') in the specified zone and performs checks on its validity.
 
-        :param zone: the zone to count
-        :return: a dict containing counters for the three types of tile and the last position of each one
+        This method iterates through the tiles in the given zone and keeps track of the count of queens ('Q'), blocked cells ('X'), 
+        and empty cells (' '). It also stores the position of the last tile of each type encountered. If the zone contains more 
+        than one queen or has no empty cells left (all tiles are 'X'), the puzzle is marked as invalid.
+
+        :param zone: The zone to analyze and count tiles in.
+        
+        :return: A dictionary containing:
+            - Counters for the three types of tiles ('Q', 'X', and ' ').
+            - The position of the last tile of each type ('last <Q>', 'last < >', 'last <X>').
         """
         ret = {'Q': 0, 'X': 0, ' ': 0, 'last <Q>': None, 'last < >': None, 'last <X>': None}
         for coord in self.zone_lists[zone]:
@@ -258,9 +332,14 @@ class Queens(BoardPuzzle):
 
     def deduct_one_place_left(self, level: int):
         """
-        If there is just one place left in a row, column o zone, place a queen there
+        Places a queen in any row, column, or zone that has only one possible position left.
 
-        :return: True if any change was made in the board
+        This method checks each row, column, and zone on the board. If any of them has just one empty cell 
+        remaining, it places a queen in that cell.
+
+        :param level: The current recursive depth, used to undo moves if a dead end is reached.
+
+        :return: True if any change was made in the board; otherwise, False.
         """
         changed = False
         for zone in self.zone_lists:
@@ -274,9 +353,14 @@ class Queens(BoardPuzzle):
 
     def deduct_one_queen_per_zone(self, level: int):
         """
-        If there is a queen in a zone, mark with X the other cells of that zone
+        Marks all empty cells in a zone with an 'X' if there is already a queen placed in that zone.
 
-        :return: True if any change was made in the board
+        This method iterates through each zone on the board. If a zone contains exactly one queen and at least 
+        one empty cell, it marks all remaining empty cells in that zone as blocked ('X').
+
+        :param level: The current recursive depth, used to undo moves if a dead end is reached.
+
+        :return: True if any change was made in the board; otherwise, False.
         """
         changed = False
         for zone in self.zone_lists:
@@ -292,9 +376,17 @@ class Queens(BoardPuzzle):
 
     def deduct_no_touching_queens(self, level: int):
         """
-        If there is a queen in a cell, mark with X all the cells around it
+        Marks all cells surrounding a queen with an 'X' to enforce the rule that queens cannot touch each other, 
+        not even diagonally.
 
-        :return: True if any change was made in the board
+        This method iterates through all queens on the board. For each queen, it marks all adjacent cells (up, down, 
+        left, right, and diagonals) as blocked ('X'). If any adjacent cell already contains a queen, the board is 
+        marked as invalid. Additionally, it checks if the solution is complete by verifying that there is exactly 
+        one queen per row and no invalid state.
+
+        :param level: The current recursive depth, used to undo moves if a dead end is reached.
+
+        :return: True if any change was made in the board; otherwise, False.
         """
         changed = False
         queen_count = 0
@@ -319,10 +411,14 @@ class Queens(BoardPuzzle):
 
     def deduct_zone_qty_match_range_length(self, level: int):
         """
-        If there are exactly n zones enclosed in an n rows (or cols) range, then the other zones within the range must be
-        marked X, because we have n queens for n rows (or cols) and these exactly n zones.
+        This method checks if there are exactly `n` distinct zones within a contiguous range of `n` rows or `n` columns. 
+        If this condition is met, it implies that there are `n` queens for these `n` rows (or columns) and exactly these 
+        `n` zones. Consequently, any cells belonging to other zones within this range are marked as blocked ('X'). If the 
+        number of distinct zones in the range exceeds `n`, the board is marked as invalid.
 
-        :return: True if any change was made in the board
+        :param level: The current recursive depth, used to undo moves if a dead end is reached.
+
+        :return: True if any change was made in the board; otherwise, False.
         """
         changed = False
         zone_limits = {zone: self.zone_limits(zone) for zone in self.zone_lists if zone.startswith('zone')}
@@ -351,9 +447,11 @@ class Queens(BoardPuzzle):
         If part of a zone is needed to reach the number of queens in a range (rows or cols), then the zone cells outside
         the range must be marked X
 
-        :return: True if any change was made in the board
+        :param level: The current recursive depth, used to undo moves if a dead end is reached.
+
+        :return: True if any change was made in the board; otherwise, False.
         """
-        # TODO: If need to avoid some brute-force searching, implement this and other posible deduct methods.
+        # TODO: If further optimization is needed to reduce brute-force searching, implement this and other possible deduction methods.
         changed = False
 
         return changed
