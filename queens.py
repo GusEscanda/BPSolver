@@ -34,10 +34,13 @@ class Queens(BoardPuzzle):
                             `max_groupping_dist`) will be sent to `Grid.find_grid`.
         :type addit_params: dict-like (keyword arguments)
         """
-        self.rows, self.cols = 0, 0
-        self.moves_by_level = dict()
+        self.board = None
+        self.zone_matrix = None
+        self.zone_colors = None
         self.zone_lists = None
         self.zone_queens = dict()
+        self.rows, self.cols = 0, 0
+        self.moves_by_level = dict()
         self.order_within_level = 0
         self.is_solved = False
         self.is_invalid = False
@@ -45,7 +48,6 @@ class Queens(BoardPuzzle):
         self.x_axis = None
         self.y_axis = None
         self.size = None
-        self.zone_colors = None
         self.msg = ''
         if source is None:
             return
