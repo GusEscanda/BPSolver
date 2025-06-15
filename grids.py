@@ -101,18 +101,23 @@ class Grid:
             image = cv2.resize(image, (width, height), interpolation=method)
 
         # Build the work images
-        self.work_imgs = {}
         if len(image.shape) == 2:
             img_gray = image.copy()
         elif len(image.shape) == 3 and image.shape[2] == 3:
             img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         else:
             raise Exception('Invalid image format')
-        self.work_imgs['GRAY'] = img_gray
 
-        for thr in threshold_values:
-            _, binary = cv2.threshold(img_gray, thr, 255, cv2.THRESH_BINARY_INV)
-            self.work_imgs[f'GRAY|BIN:{("000"+str(thr))[-3:]}'] = binary
+        self.work_imgs = {}
+        self.work_imgs['GRAY'] = img_gray
+        self.work_imgs['EQ-GRAY'] = cv2.equalizeHist(img_gray)
+
+        binaries = {}
+        for pr in self.work_imgs:
+            for thr in threshold_values:
+                _, binary = cv2.threshold(self.work_imgs[pr], thr, 255, cv2.THRESH_BINARY_INV)
+                binaries[f'{pr}|BIN:{("000"+str(thr))[-3:]}'] = binary
+        self.work_imgs = {**self.work_imgs, **binaries}
 
         blurs = {}
         for pr in self.work_imgs:
