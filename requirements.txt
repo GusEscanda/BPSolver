@@ -8,3 +8,5 @@ pandas
 matplotlib
 scikit-learn
 scikit-image
+python-telegram-bot
+python-dotenv
