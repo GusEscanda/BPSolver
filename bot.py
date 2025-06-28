@@ -112,6 +112,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == '__main__':
+    print('#####<' + TOKEN + '>#####')
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(MessageHandler(filters.PHOTO, handle_image))
     app.run_polling()
