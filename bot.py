@@ -16,24 +16,24 @@ load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 
 def try_solutions(image):
-    messages, result_image = ([], None)
+    solved, messages, result_image = False, [], None
 
     # Try to detect the puzzle grid in the image
     grid = Grid(image=image)
     grid.preprocess_image(
         resize_width=500,
-        threshold_values=[70, 100, 130, 160]
+        # threshold_values=[70, 100, 130, 160]
     )
     grid.find_grid(
-        min_line_length=[300, 350, 400], 
+        min_line_length=[250, 300, 350, 400], 
         max_line_gap=[8, 12], 
         max_groupping_dist=3,
         min_valid_n=5,
         max_valid_n=15
     )
     if grid.n == 0:
-        messages.append("Couldn't detect any board in the image.")
-        return (messages, result_image)
+        messages.append("Couldn't detect the board grid in the image.")
+        return solved, messages, result_image
     else:
         result_image = draw_grid(grid.image, grid.x_axis, grid.y_axis)
 
@@ -45,10 +45,11 @@ def try_solutions(image):
         messages.append(f"Queens: {puzzle.msg}")
     else:
         msg = solver.solve()
-        if solver.solved:
+        solved = solver.solved
+        if solved:
             messages = ["Queens puzzle detected — here's the solution!"]
             result_image = puzzle.draw_solution(grid.image)
-            return (messages, result_image)
+            return solved, messages, result_image
         messages.append(f"Queens: {msg}")
 
     # Try solving as a Tango puzzle
@@ -63,13 +64,14 @@ def try_solutions(image):
         messages.append(f"Tango: {puzzle.msg}")
     else:
         msg = solver.solve()
-        if solver.solved:
+        solved = solver.solved
+        if solved:
             messages = ["Tango puzzle detected — here's the solution!"]
             result_image = puzzle.draw_solution(grid.image)
-            return (messages, result_image)    
+            return solved, messages, result_image
         messages.append(f"Tango: {msg}")
 
-    return (messages, result_image)
+    return solved, messages, result_image
 
 
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -84,7 +86,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
     try:
-        messages, result_image = try_solutions(img)
+        solved, messages, result_image = try_solutions(img)
         for msg in messages:
             print(msg)
             await update.message.reply_text(msg)
@@ -94,15 +96,16 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             output_io.seek(0)
             await update.message.reply_photo(photo=output_io)
 
-        # Add footer with author and repo
-        await update.message.reply_text(
-            "Full source code available at:\n"
-            "https://github.com/GusEscanda/BPSolver\n\n"
-            "Alongside the bot and puzzle solver classes, the repository includes a Jupyter notebook "
-            "that demonstrates how to use the main functions and shows batch solutions for multiple puzzle images. "
-            "Feel free to explore or experiment with the code!\n\n"
-            "Gustavo Escandarani."
-        )
+        if solved:
+            # Add footer with author and repo
+            await update.message.reply_text(
+                "Full source code available at:\n"
+                "https://github.com/GusEscanda/BPSolver\n\n"
+                "Alongside the bot and puzzle solver classes, the repository includes a Jupyter notebook "
+                "that demonstrates how to use the main functions and shows batch solutions for multiple puzzle images. "
+                "Feel free to explore or experiment with the code!\n\n"
+                "Gustavo Escandarani."
+            )
 
     except Exception as e:
         await update.message.reply_text(f"An error occurred while processing the image: {e}")
