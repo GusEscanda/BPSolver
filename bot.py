@@ -19,14 +19,6 @@ if os.getenv("RAILWAY_ENVIRONMENT") is None:
 else:
     print('Using Railway variables')
 
-print('ENVIRONMENT VARIABLES:')
-print(os.environ)
-
-TOKEN = os.getenv("BOT_TOKEN")
-print()
-print('#####<' + repr(TOKEN) + '>#####')
-print()
-
 def try_solutions(image):
     solved, messages, result_image = False, [], None
 
