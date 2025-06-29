@@ -11,8 +11,6 @@ from queens import Queens
 from tango import Tango
 from BPSolver import BPSolver
 
-import os
-
 if os.getenv("RAILWAY_ENVIRONMENT") is None:
     # Only load .env if running in local mode
     print('Loading .env')
@@ -21,9 +19,12 @@ if os.getenv("RAILWAY_ENVIRONMENT") is None:
 else:
     print('Using Railway variables')
 
+print('ENVIRONMENT VARIABLES:')
+print(os.environ)
+
 TOKEN = os.getenv("BOT_TOKEN")
 print()
-print('#####<' + TOKEN + '>#####')
+print('#####<' + repr(TOKEN) + '>#####')
 print()
 
 def try_solutions(image):
