@@ -1,5 +1,4 @@
 import os
-from dotenv import load_dotenv
 import numpy as np
 from datetime import datetime, timedelta
 import cv2
@@ -12,7 +11,16 @@ from queens import Queens
 from tango import Tango
 from BPSolver import BPSolver
 
-load_dotenv()
+import os
+
+if os.getenv("RAILWAY_ENVIRONMENT") is None:
+    # Only load .env if running in local mode
+    print('Loading .env')
+    from dotenv import load_dotenv
+    load_dotenv()
+else:
+    print('Using Railway variables')
+
 TOKEN = os.getenv("BOT_TOKEN")
 print()
 print('#####<' + TOKEN + '>#####')
