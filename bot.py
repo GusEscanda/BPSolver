@@ -79,6 +79,11 @@ def try_solutions(image):
 
     return solved, messages, result_image
 
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Send me a screenshot of an unsolved Queens or Tango puzzle.\n"
+        "I'll try to detect the grid and, if I can, I'll solve it and send the solution back to you!"
+    )
 
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo = update.message.photo[-1]
@@ -105,12 +110,9 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if solved:
             # Add footer with author and repo
             await update.message.reply_text(
-                "Full source code available at:\n"
-                "https://github.com/GusEscanda/BPSolver\n\n"
-                "Alongside the bot and puzzle solver classes, the repository includes a Jupyter notebook "
-                "that demonstrates how to use the main functions and shows batch solutions for multiple puzzle images. "
-                "Feel free to explore or experiment with the code!\n\n"
-                "Gustavo Escandarani."
+                "Check out the full code on GitHub: https://github.com/GusEscanda/BPSolver\n\n"
+                "Includes the bot, solvers, and a Jupyter notebook to test everything in batches.\nEnjoy!\n\n"
+                "— Gustavo Escandarani"
             )
 
     except Exception as e:
@@ -119,5 +121,6 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_image))
     app.run_polling()
