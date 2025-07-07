@@ -183,8 +183,8 @@ async def handle_clearstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- Bot setup ---
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(MessageHandler(filters.TEXT, handle_text))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_image))
     app.add_handler(CommandHandler("stats", handle_stats))
     app.add_handler(CommandHandler("clearstats", handle_clearstats))
+    app.add_handler(MessageHandler(filters.TEXT, handle_text))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_image))
     app.run_polling()
