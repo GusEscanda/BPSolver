@@ -119,7 +119,6 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_photo(photo=output_io)
 
         if solved:
-            STATS["solved"] += 1
             await update.message.reply_text(
                 "Check out the code on GitHub:\n"
                 "https://github.com/GusEscanda/BPSolver\n\n"
