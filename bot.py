@@ -1,10 +1,12 @@
 import os
 import numpy as np
+import json
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import cv2
 from io import BytesIO
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes, CommandHandler
 
 from grids import Grid, draw_grid
 from queens import Queens
@@ -23,10 +25,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 OWNER_CHAT_ID = int(os.getenv("OWNER_CHAT_ID"))
 
 # --- Puzzle stats ---
-STATS = {
-    "received": 0,
-    "solved": 0
-}
+STATS = dict()
 
 # --- Puzzle solver logic ---
 def try_solutions(image):
@@ -45,7 +44,7 @@ def try_solutions(image):
 
     if grid.n == 0:
         messages.append("Couldn't detect the board grid in the image.")
-        return solved, messages, result_image
+        return solved, messages, result_image, 'no_grid_detected'
     else:
         result_image = draw_grid(grid.image, grid.x_axis, grid.y_axis)
 
@@ -61,7 +60,7 @@ def try_solutions(image):
         if solved:
             messages = ["Queens puzzle detected — here's the solution!"]
             result_image = puzzle.draw_solution(grid.image)
-            return solved, messages, result_image
+            return solved, messages, result_image, 'solved_queens'
         messages.append(f"Queens: {msg}")
 
     # Try solving as Tango puzzle
@@ -80,15 +79,22 @@ def try_solutions(image):
         if solved:
             messages = ["Tango puzzle detected — here's the solution!"]
             result_image = puzzle.draw_solution(grid.image)
-            return solved, messages, result_image
+            return solved, messages, result_image, 'solved_tango'
         messages.append(f"Tango: {msg}")
 
-    return solved, messages, result_image
+    return solved, messages, result_image, 'puzzle_unsolved'
+
+# --- Stats ---
+def update_stats(user, stat):
+    username = user.username or f"{user.first_name} {user.last_name or ''}".strip()
+    today = datetime.strftime(datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")), '%Y-%m-%d')
+    STATS.setdefault(today, {}).setdefault(username, {}).setdefault(stat, 0)
+    STATS[today][username][stat] += 1
 
 # --- Handlers ---
 
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    STATS["received"] += 1
+    update_stats(update.effective_user, 'image')
 
     photo = update.message.photo[-1]
     file = await context.bot.get_file(photo.file_id)
@@ -100,7 +106,8 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
     try:
-        solved, messages, result_image = try_solutions(img)
+        solved, messages, result_image, stat = try_solutions(img)
+        update_stats(update.effective_user, stat)
         for msg in messages:
             print(msg)
             await update.message.reply_text(msg)
@@ -135,21 +142,49 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Send me a screenshot of an unsolved Queens or Tango puzzle.\n"
         "I'll try to detect the grid and, if I can, I'll solve it and send the solution back to you!"
     )
+    update_stats(update.effective_user, 'text')
 
 async def handle_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_CHAT_ID:
         await update.message.reply_text("Sorry, this command is not available.")
         return
 
-    await update.message.reply_text(
-        f"Puzzles received: {STATS['received']}\n"
-        f"Puzzles solved: {STATS['solved']}"
-    )
+    pretty_stats = json.dumps(STATS, indent=4, ensure_ascii=False)
+    
+    if len(pretty_stats) < 3800:
+        await update.message.reply_text(f"📊 Estadísticas:\n\n{pretty_stats}")
+    else:
+        await update.message.reply_text("📊 Estadísticas enviadas como archivo.")
+        await update.message.reply_document(
+            document=BytesIO(pretty_stats.encode()),
+            filename="stats.json"
+        )
+
+async def handle_clearstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_CHAT_ID:
+        await update.message.reply_text("Sorry, this command is not available.")
+        return
+
+    try:
+        if not context.args or len(context.args) != 1:
+            cutoff = datetime.strftime(datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")), '%Y-%m-%d')
+        else:
+            cutoff = datetime.strptime(context.args[0], "%Y-%m-%d").date()
+        deleted = []
+        for day in STATS:
+            if datetime.strptime(day, "%Y-%m-%d").date() <= cutoff:
+                del STATS[day]
+                deleted.append(day)
+        await update.message.reply_text(f"Deleted stats for dates: {', '.join(deleted) or 'none'}")
+    except Exception as e:
+        await update.message.reply_text(f"Invalid date format or error: {e}")
+
 
 # --- Bot setup ---
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_image))
     app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^/stats$"), handle_stats))
-    app.add_handler(MessageHandler(filters.TEXT, handle_text))
+    app.add_handler(CommandHandler("clearstats", handle_clearstats))
     app.run_polling()
