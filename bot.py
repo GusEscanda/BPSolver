@@ -23,6 +23,7 @@ else:
 
 TOKEN = os.getenv("BOT_TOKEN")
 OWNER_CHAT_ID = int(os.getenv("OWNER_CHAT_ID"))
+RUN_BOT = os.getenv("RUN_BOT", "true").lower() == "true"
 
 # --- Puzzle stats ---
 STATS = dict()
@@ -167,16 +168,12 @@ async def handle_clearstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         if not context.args or len(context.args) != 1:
             cutoff = datetime.strftime(datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")), '%Y-%m-%d')
-        else:
-            cutoff = datetime.strptime(context.args[0], "%Y-%m-%d").date()
-        deleted = []
-        for day in STATS:
-            if datetime.strptime(day, "%Y-%m-%d").date() <= cutoff:
-                del STATS[day]
-                deleted.append(day)
-        await update.message.reply_text(f"Deleted stats for dates: {', '.join(deleted) or 'none'}")
+        delete = [day for day in STATS if day <= cutoff]
+        for day in delete:
+            del STATS[day]
+        await update.message.reply_text(f"Deleted stats for dates: {', '.join(delete) or 'none'}")
     except Exception as e:
-        await update.message.reply_text(f"Invalid date format or error: {e}")
+        await update.message.reply_text(f"Error: {e}")
 
 
 # --- Bot setup ---
@@ -186,4 +183,5 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("clearstats", handle_clearstats))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_image))
-    app.run_polling()
+    if RUN_BOT:
+        app.run_polling()
