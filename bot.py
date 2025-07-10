@@ -28,6 +28,7 @@ RUN_BOT = os.getenv("RUN_BOT", "true").lower() == "true"
 # --- Puzzle stats ---
 STATS = dict()
 
+
 # --- Puzzle solver logic ---
 def try_solutions(image):
     solved, messages, result_image = False, [], None
@@ -85,12 +86,14 @@ def try_solutions(image):
 
     return solved, messages, result_image, 'puzzle_unsolved'
 
+
 # --- Stats ---
 def update_stats(user, stat):
     username = user.username or f"{user.first_name} {user.last_name or ''}".strip()
     today = datetime.strftime(datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")), '%Y-%m-%d')
     STATS.setdefault(today, {}).setdefault(username, {}).setdefault(stat, 0)
     STATS[today][username][stat] += 1
+
 
 # --- Handlers ---
 
@@ -137,12 +140,14 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"An error occurred while processing the image: {e}")
 
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Send me a screenshot of an unsolved Queens or Tango puzzle.\n"
         "I'll try to detect the grid and, if I can, I'll solve it and send the solution back to you!"
     )
     update_stats(update.effective_user, 'text')
+
 
 async def handle_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_CHAT_ID:
@@ -152,13 +157,14 @@ async def handle_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pretty_stats = json.dumps(STATS, indent=4, ensure_ascii=False)
     
     if len(pretty_stats) < 3800:
-        await update.message.reply_text(f"📊 Estadísticas:\n\n{pretty_stats}")
+        await update.message.reply_text(f"📊 Stats:\n\n{pretty_stats}")
     else:
-        await update.message.reply_text("📊 Estadísticas enviadas como archivo.")
+        await update.message.reply_text("📊 Stats sent as a file.")
         await update.message.reply_document(
             document=BytesIO(pretty_stats.encode()),
             filename="stats.json"
         )
+
 
 async def handle_clearstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_CHAT_ID:
@@ -166,14 +172,36 @@ async def handle_clearstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
-        if not context.args or len(context.args) != 1:
-            cutoff = datetime.strftime(datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")), '%Y-%m-%d')
-        delete = [day for day in STATS if day <= cutoff]
-        for day in delete:
+        cutoff = '9999-99-99' if not context.args else context.args[0]
+        to_delete = [day for day in STATS if day <= cutoff]
+        for day in to_delete:
             del STATS[day]
-        await update.message.reply_text(f"Deleted stats for dates: {', '.join(delete) or 'none'}")
+        
+        if to_delete:
+            await update.message.reply_text(
+                f"🧹 Deleted statistics for the following date(s):\n" +
+                "\n".join(f"- {date}" for date in sorted(to_delete))
+            )
+        else:
+            await update.message.reply_text("✅ No statistics matched the given cutoff date. Nothing was deleted.")
+
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
+
+
+async def handle_unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    command = update.message.text.strip().lower()
+
+    help_message = (
+        "✅ Available admin commands:\n"
+        "/stats – Show current statistics\n"
+        "/clearstats [yyyy-mm-dd] – Clear statistics older than the specified date (default: all)"
+    )
+
+    if command in ["/help", "/?"]:
+        await update.message.reply_text(help_message)
+    else:
+        await update.message.reply_text(f"⚠️ Unknown command.\n\n{help_message}")
 
 
 # --- Bot setup ---
@@ -181,6 +209,7 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("stats", handle_stats))
     app.add_handler(CommandHandler("clearstats", handle_clearstats))
+    app.add_handler(MessageHandler(filters.COMMAND, handle_unknown_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_image))
     if RUN_BOT:
